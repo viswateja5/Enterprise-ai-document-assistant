@@ -1,0 +1,25 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment variables
+.env
+
+# Database and vector store
+vector_store/
+uploads/
+
+# Node
+node_modules/
+dist/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
