@@ -1,6 +1,5 @@
 import os
 from typing import Any
-from langchain_openai import ChatOpenAI
 
 def get_llm(streaming: bool = True, temperature: float = 0.0) -> Any:
     """
@@ -15,6 +14,7 @@ def get_llm(streaming: bool = True, temperature: float = 0.0) -> Any:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is missing.")
+        from langchain_openai import ChatOpenAI
         return ChatOpenAI(
             model="gpt-4o-mini", 
             temperature=temperature, 

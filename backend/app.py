@@ -51,19 +51,9 @@ async def lifespan(app: FastAPI):
     # 2. Connect to Cache
     await init_redis()
     
-    # 3. Eagerly load ML models to cache them in memory and eliminate first-query latency
-    try:
-        logger.info("Eagerly loading Embeddings and CrossEncoder reranker models...")
-        from utils.embeddings import get_embeddings_model
-        from utils.rerank import get_cross_encoder
-        
-        # Call functions to trigger lazy loaders and cache via lru_cache
-        get_embeddings_model()
-        get_cross_encoder()
-        logger.info("ML Models successfully preloaded and cached in memory.")
-    except Exception as e:
-        logger.warning(f"ML Model eager loading failed (will load lazily on query): {e}")
-        
+    # 3. ML Models are lazy loaded on demand to minimize startup RAM below 100 MB.
+    logger.info("ML Models deferred (lazy loaded on active search/study queries).")
+    
     yield
     logger.info("Shutting down Enterprise AI Document Assistant backend...")
 
