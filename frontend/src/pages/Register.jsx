@@ -45,7 +45,7 @@ export default function Register({ onSignupSuccess, onNavigateToLogin }) {
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto py-8 flex flex-col justify-center items-center px-4 select-none scrollbar-thin">
+    <div className="w-full h-full overflow-y-auto py-8 flex flex-col justify-start md:justify-center items-center px-4 select-none scrollbar-thin">
       <Card hover={false} className="w-full max-w-md border border-slate-200 dark:border-white/10 shadow-2xl p-8 relative overflow-hidden bg-white/80 dark:bg-[#1E293B]/70 backdrop-blur-xl">
         {/* Brand Logo */}
         <div className="flex flex-col items-center mb-8">
