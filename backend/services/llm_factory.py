@@ -10,6 +10,23 @@ def get_llm(streaming: bool = True, temperature: float = 0.0) -> Any:
     """
     provider = os.getenv("MODEL_PROVIDER", "openai").lower()
     
+    # Auto-fallback detection if the chosen provider's key is not set
+    if provider == "openai" and not os.getenv("OPENAI_API_KEY"):
+        if os.getenv("GOOGLE_API_KEY"):
+            provider = "gemini"
+        elif os.getenv("GROQ_API_KEY"):
+            provider = "groq"
+    elif provider == "gemini" and not os.getenv("GOOGLE_API_KEY"):
+        if os.getenv("OPENAI_API_KEY"):
+            provider = "openai"
+        elif os.getenv("GROQ_API_KEY"):
+            provider = "groq"
+    elif provider == "groq" and not os.getenv("GROQ_API_KEY"):
+        if os.getenv("OPENAI_API_KEY"):
+            provider = "openai"
+        elif os.getenv("GOOGLE_API_KEY"):
+            provider = "gemini"
+    
     if provider == "openai":
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:

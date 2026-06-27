@@ -227,22 +227,32 @@ async def synthesize_reasoning(state: AgentState) -> dict:
         answer = res.content
         reasoning_trace.append("Final answer synthesized successfully.")
     except Exception as e:
-        logger.warning(f"Default model synthesis failed: {e}. Executing fallback Llama-3.1-8b-instant...")
+        logger.warning(f"Default model synthesis failed: {e}. Executing fallback model...")
         try:
-            prev_provider = os.getenv("MODEL_PROVIDER", "groq")
-            if prev_provider == "groq":
+            if os.getenv("GROQ_API_KEY"):
                 from langchain_groq import ChatGroq
-                api_key = os.getenv("GROQ_API_KEY")
                 fallback_llm = ChatGroq(
                     model="llama-3.1-8b-instant", 
-                    groq_api_key=api_key, 
+                    groq_api_key=os.getenv("GROQ_API_KEY"), 
                     temperature=0.0
                 )
-                res = await fallback_llm.ainvoke(prompt)
-                answer = res.content
-                reasoning_trace.append("Final answer synthesized using fallback model.")
+            elif os.getenv("GOOGLE_API_KEY"):
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                fallback_llm = ChatGoogleGenerativeAI(
+                    model="gemini-1.5-flash",
+                    google_api_key=os.getenv("GOOGLE_API_KEY"),
+                    temperature=0.0
+                )
             else:
-                raise e
+                from langchain_openai import ChatOpenAI
+                fallback_llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    openai_api_key=os.getenv("OPENAI_API_KEY"),
+                    temperature=0.0
+                )
+            res = await fallback_llm.ainvoke(prompt)
+            answer = res.content
+            reasoning_trace.append("Final answer synthesized using fallback model.")
         except Exception as fe:
             logger.error(f"Reasoning synthesis fallback model failed: {fe}", exc_info=True)
             answer = f"Error during synthesis: {str(fe)}"

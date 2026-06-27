@@ -206,16 +206,32 @@ async def stream_agent_reasoning(
                     answer_text += token
                     yield f"data: {json.dumps({'type': 'content', 'data': token})}\n\n"
         except Exception as e:
-            logger.warning(f"Streaming failed: {e}. Falling back to llama-3.1-8b-instant...")
+            logger.warning(f"Streaming failed: {e}. Falling back to alternative model...")
             try:
-                from langchain_groq import ChatGroq
-                api_key = os.getenv("GROQ_API_KEY")
-                fallback_llm = ChatGroq(
-                    model="llama-3.1-8b-instant", 
-                    groq_api_key=api_key, 
-                    temperature=0.0,
-                    streaming=True
-                )
+                if os.getenv("GROQ_API_KEY"):
+                    from langchain_groq import ChatGroq
+                    fallback_llm = ChatGroq(
+                        model="llama-3.1-8b-instant", 
+                        groq_api_key=os.getenv("GROQ_API_KEY"), 
+                        temperature=0.0,
+                        streaming=True
+                    )
+                elif os.getenv("GOOGLE_API_KEY"):
+                    from langchain_google_genai import ChatGoogleGenerativeAI
+                    fallback_llm = ChatGoogleGenerativeAI(
+                        model="gemini-1.5-flash",
+                        google_api_key=os.getenv("GOOGLE_API_KEY"),
+                        temperature=0.0,
+                        streaming=True
+                    )
+                else:
+                    from langchain_openai import ChatOpenAI
+                    fallback_llm = ChatOpenAI(
+                        model="gpt-4o-mini",
+                        openai_api_key=os.getenv("OPENAI_API_KEY"),
+                        temperature=0.0,
+                        streaming=True
+                    )
                 async for chunk in fallback_llm.astream(prompt):
                     token = chunk.content
                     if token:
