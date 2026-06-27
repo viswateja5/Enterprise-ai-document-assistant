@@ -16,7 +16,6 @@ def get_device() -> str:
         pass
     return "cpu"
 
-import os
 import pickle
 from typing import List
 

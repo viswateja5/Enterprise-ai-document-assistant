@@ -122,7 +122,6 @@ async def stream_agent_reasoning(
         citations = []
         doc_context_blocks = []
         for idx, doc in enumerate(compressed_documents):
-            import os
             filename = os.path.basename(doc.metadata.get("source", "unknown"))
             page = doc.metadata.get("page", 0) + 1
             doc_context_blocks.append(f"[Source: {filename}, Page: {page}]:\n{doc.page_content}")

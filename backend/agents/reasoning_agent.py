@@ -229,7 +229,6 @@ async def synthesize_reasoning(state: AgentState) -> dict:
     except Exception as e:
         logger.warning(f"Default model synthesis failed: {e}. Executing fallback Llama-3.1-8b-instant...")
         try:
-            import os
             prev_provider = os.getenv("MODEL_PROVIDER", "groq")
             if prev_provider == "groq":
                 from langchain_groq import ChatGroq
