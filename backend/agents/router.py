@@ -24,6 +24,8 @@ async def route_query(state: AgentState) -> dict:
     LangGraph routing node. Classifies the query and populates the 'decision', 'intent', and 'query_type' state fields.
     """
     query = state.get("query", "").strip()
+    doc_count = state.get("document_count", 0)
+    
     if not query:
         return {
             "intent": "casual",
@@ -61,6 +63,22 @@ async def route_query(state: AgentState) -> dict:
             "decision": "llm",
             "query_type": "fact",
             "reasoning_trace": state.get("reasoning_trace", []) + [f"Fast-path regex matched: intent='{intent}', decision='llm'."]
+        }
+
+    # If no documents are uploaded in the active session, bypass the LLM classifier to save latency.
+    if doc_count == 0:
+        real_time_keywords = ["weather", "news", "stock", "price", "sport", "score", "today", "current events"]
+        is_real_time = any(w in clean_query for w in real_time_keywords)
+        intent = "real_time" if is_real_time else "general_knowledge"
+        decision = "web" if is_real_time else "llm"
+        
+        return {
+            "intent": intent,
+            "decision": decision,
+            "query_type": "fact",
+            "reasoning_trace": state.get("reasoning_trace", []) + [
+                f"Bypassed LLM query classifier because active session has 0 documents. Routed query as '{intent}' -> '{decision}'."
+            ]
         }
 
     system_prompt = (

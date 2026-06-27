@@ -43,6 +43,21 @@ async def stream_agent_reasoning(
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
+        # 2. Get document count for the active session (or globally if global_search is active)
+        doc_count = 0
+        try:
+            from sqlalchemy import select, func
+            from models.db_models import UploadFileModel
+            async with async_session_maker() as db:
+                if global_search:
+                    stmt = select(func.count(UploadFileModel.id))
+                else:
+                    stmt = select(func.count(UploadFileModel.id)).where(UploadFileModel.session_id == session_id)
+                res = await db.execute(stmt)
+                doc_count = res.scalar() or 0
+        except Exception as dbe:
+            logger.warning(f"Could not retrieve document count in agent router: {dbe}")
+
         # Initialize State
         state = {
             "query": query,
@@ -54,6 +69,7 @@ async def stream_agent_reasoning(
             "username": username,
             "documents": [],
             "web_results": [],
+            "document_count": doc_count,
             "reasoning_trace": ["Query received. Initializing agent graph..."]
         }
         

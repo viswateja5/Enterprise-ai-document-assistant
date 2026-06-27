@@ -11,6 +11,16 @@ from utils.search import create_hybrid_retriever
 from utils.rerank import rerank_documents
 from utils.query_processor import expand_query, extract_metadata_filters
 
+def deduplicate_docs(docs: List[Document]) -> List[Document]:
+    seen_content = set()
+    deduped = []
+    for doc in docs:
+        content = doc.page_content.strip()
+        if content not in seen_content:
+            seen_content.add(content)
+            deduped.append(doc)
+    return deduped
+
 logger = logging.getLogger("rag-backend")
 
 async def retrieve_documents(state: AgentState) -> dict:
@@ -60,20 +70,14 @@ async def retrieve_documents(state: AgentState) -> dict:
     if filter_messages:
         reasoning_trace.append(f"Self-query filters extracted: {', '.join(filter_messages)}")
 
-    # 3. Dynamic K selection based on classified query_type
+    # 3. Dynamic K selection based on classified query_type (capped to 3-5 chunks for low-latency)
     query_type = state.get("query_type", "fact")
     if query_type == "fact":
+        candidate_k = 10
+        top_n = 3
+    else:
         candidate_k = 15
         top_n = 5
-    elif query_type == "summary":
-        candidate_k = 30
-        top_n = 15
-    elif query_type == "comparison":
-        candidate_k = 40
-        top_n = 20
-    else: # study / general
-        candidate_k = 30
-        top_n = 10
         
     reasoning_trace.append(f"Dynamic k configured: candidate_k={candidate_k}, rerank_top_k={top_n} (based on type '{query_type}').")
 
@@ -100,10 +104,12 @@ async def retrieve_documents(state: AgentState) -> dict:
             document_name=doc_filter
         )
         candidates = await retriever.ainvoke(expanded_query_str)
-        reasoning_trace.append(f"Level 1: Retrieved {len(candidates)} candidates via hybrid EnsembleRetriever.")
+        candidates = deduplicate_docs(candidates)
+        reasoning_trace.append(f"Level 1: Retrieved {len(candidates)} unique candidates via hybrid EnsembleRetriever.")
         
         try:
             retrieved_docs = rerank_documents(expanded_query_str, candidates, top_n=top_n)
+            retrieved_docs = deduplicate_docs(retrieved_docs)[:top_n]
             reasoning_trace.append(f"Level 1: Successfully reranked top {len(retrieved_docs)} chunks using CrossEncoder.")
             return {"documents": retrieved_docs, "reasoning_trace": reasoning_trace}
         except Exception as re:
@@ -118,7 +124,7 @@ async def retrieve_documents(state: AgentState) -> dict:
         
         # --- Level 3: FAISS-only fallback ---
         try:
-            search_kwargs = {"k": top_n}
+            search_kwargs = {"k": top_n * 2} # fetch extra for deduplication
             filter_dict = {}
             if not global_search and session_id:
                 filter_dict["session_id"] = session_id
@@ -131,8 +137,9 @@ async def retrieve_documents(state: AgentState) -> dict:
                 search_kwargs["filter"] = filter_dict
                 
             faiss_retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
-            retrieved_docs = await faiss_retriever.ainvoke(expanded_query_str)
-            reasoning_trace.append(f"Level 3: Retrieved {len(retrieved_docs)} chunks using FAISS-only.")
+            candidates = await faiss_retriever.ainvoke(expanded_query_str)
+            retrieved_docs = deduplicate_docs(candidates)[:top_n]
+            reasoning_trace.append(f"Level 3: Retrieved {len(retrieved_docs)} unique chunks using FAISS-only.")
             return {"documents": retrieved_docs, "reasoning_trace": reasoning_trace}
         except Exception as fe:
             logger.warning(f"FAISS fallback failed: {fe}", exc_info=True)
@@ -150,9 +157,10 @@ async def retrieve_documents(state: AgentState) -> dict:
                     
                 if all_documents:
                     bm25 = BM25Retriever.from_documents(all_documents)
-                    bm25.k = top_n
-                    retrieved_docs = await bm25.ainvoke(expanded_query_str)
-                    reasoning_trace.append(f"Level 4: Retrieved {len(retrieved_docs)} chunks using BM25-only.")
+                    bm25.k = top_n * 2
+                    candidates = await bm25.ainvoke(expanded_query_str)
+                    retrieved_docs = deduplicate_docs(candidates)[:top_n]
+                    reasoning_trace.append(f"Level 4: Retrieved {len(retrieved_docs)} unique chunks using BM25-only.")
                     return {"documents": retrieved_docs, "reasoning_trace": reasoning_trace}
                 else:
                     reasoning_trace.append("Level 4 BM25 has no source documents. Defaulting to general LLM.")

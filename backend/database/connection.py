@@ -10,6 +10,10 @@ load_dotenv()
 
 # postgresql+asyncpg://user:pass@host/db or sqlite+aiosqlite:///vector_store/chat_history.db
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///vector_store/chat_history.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 is_sqlite = "sqlite" in DATABASE_URL
 
