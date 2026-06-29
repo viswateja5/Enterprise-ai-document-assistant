@@ -1,7 +1,7 @@
 // Standalone Client-Side API & Search Engine Emulation Layer with FastAPI Hybrid Gateway
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:10000";
 let isOfflineMode = true;
 
 axios.defaults.timeout = 15000;
